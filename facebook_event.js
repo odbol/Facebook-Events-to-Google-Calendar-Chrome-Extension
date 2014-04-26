@@ -14,7 +14,13 @@ function addAndBindLink() {
 		$span = $("<span />")
 			.text("Add to Google Calendar")
 			.addClass("gcal_link").addClass("facebook_event_to_gcal")
-			.bind("click", openFacebook)
+			.bind("click", openFacebook);
+		// old event page as of 3/16/2014
+		if ($(".fbEventHeaderBlock span.fcg").length > 0) {
+			$span.appendTo($(".fbEventHeaderBlock span.fcg"));
+		}
+
+		// new event page as of 3/16/2014
 		if ($(FACEBOOK_DIV_TO_APPEND_TO).length > 0) {
 			$span.appendTo($(FACEBOOK_DIV_TO_APPEND_TO));
 		}
@@ -47,11 +53,18 @@ function loadGoogleCalendar() {
 			var descriptionText = description ? description.substring(0, 1000) : "";
 			descriptionText = unescape(descriptionText);
 			descriptionText += "\n\nFacebook event URL is https://www.facebook.com/events/"+eventId;
+
+			// as of 2014-02-14, facebook is returning start_time and end_time encoded with a specific time zone
 			var startTime = formatTime(response.start_time);
 			var endTime = formatTime(response.end_time);
 			if (startTime === null) {
 				$("<div />").addClass("invalid-date facebook_event_to_gcal").text("I'm sorry but the date on this event is invalid! Please try again");
 				return;
+			}
+			if (endTime == null) {
+				var fakeEnd = new XDate(new Date(response.start_time));
+				fakeEnd.addHours(3);
+				endTime = formatTime(fakeEnd);
 			}
 			var locationText = get_location(response).replace(/\n$/,'').replace(/\n/g,'');
 			var gCalParams = $.param({
@@ -107,15 +120,20 @@ function locationTextString(name, street, city, state, zip) {
 }
 
 function formatTime(dateTime) {
+	var d = new XDate(new Date(dateTime));
+	return convertDateToString(d);
+}
 
+// @params [XDate]
+function convertDateToString(d) {
 	function pad(str) {
 	  str = str.toString();
 	  return (str.length == 1) ? '0' + str : str;
 	}
 
-	var d = new XDate(new Date(dateTime));
 	if (d.valid()) {
-		d.addHours(d.getTimezoneOffset()/60);
+		// TODO: facebook is no longer returning timezones correctly?
+		// d.addHours(d.getTimezoneOffset()/60);
 		var dStr = d.getUTCFullYear()
 	           + pad(d.getUTCMonth() + 1)
 	           + pad(d.getUTCDate())
@@ -128,6 +146,7 @@ function formatTime(dateTime) {
 		return null;
 	}
 }
+
 
 if (window.location.hash.length > 0 && window.location.pathname.match("connect/login_success")) {
 	try {
